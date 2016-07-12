@@ -26,6 +26,7 @@ def get_silhouette(df):
     [mn_CN, mn_AB]=df.loc[:, ['CN', 'AB']].mean(skipna=True)
     [sd_CN, sd_AB]=df.loc[:, ['CN', 'AB']].std(skipna=True)
 
+    # These lines caused much woe in git
     if df.loc[:,'GT'].unique().size==1:
         df.loc[:,'sil_gt_avg']=1
         df.loc[:, 'sil_gt']=1
