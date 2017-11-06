@@ -133,6 +133,8 @@ class VcfToBedpeConverter(object):
                 orig_name_b = secondary_variant.var_id
                 orig_ref_b = secondary_variant.ref
                 orig_alt_b = secondary_variant.alt
+                sc1, ss1, se1, sc2, ss2, se2, so1, so2 = parser(secondary_variant)
+                s2, e2 = self.adjust_coordinate(secondary_variant, 'CIPOS', ss1, se1)
 
         # For MANTA single-ended BNDs, EVENT is not present.
         # XXX This has probably already been calculated outside of this method. May be a candidate to memoize or otherwise cache?
@@ -140,6 +142,11 @@ class VcfToBedpeConverter(object):
         name = vcf_variant.var_id
         if 'EVENT' in vcf_variant.info:
             name = vcf_variant.info['EVENT']
+        elif 'MATEID' in vcf_variant.info and vcf_variant.var_id.startswith('Manta'):
+            # Specifically handle Manta
+            name, end = vcf_variant.var_id.rsplit(':', 1)
+
+
 
         return Bedpe(map(str,[
             c1,
