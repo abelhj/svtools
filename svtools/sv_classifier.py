@@ -355,6 +355,7 @@ def has_low_freq_depth_support(test_set, mad_threshold=2, absolute_cn_diff=0.5):
         resid=-resid
     
     resid=resid[(resid > (cn_mad * mad_threshold) ) & (resid>absolute_cn_diff)]
+    sys.stderr.write(test_set['var_id'][0]+"\tlow\t"+str(len(resid))+"\t"+str(len(hom_het_alt_cn))+"\t"+str(cn_median)+"\t"+str(cn_mad)+"\n")
 
     if float(len(resid))/len(hom_het_alt_cn)>mad_quorum:
         return True
@@ -370,7 +371,7 @@ def has_high_freq_depth_support(df, slope_threshold, rsquared_threshold):
         (slope, intercept, r_value, p_value, std_err) = stats.linregress(rd)
         if df['svtype'][0] == 'DEL':
             slope=-slope
-        #sys.stderr.write(df['var_id'][0]+"\t"+str(slope)+"\t"+str(r_value)+"\n")
+        sys.stderr.write(df['var_id'][0]+"\thigh\t"+str(slope)+"\t"+str(r_value)+"\t\t\n")
 
         if (slope < slope_threshold or r_value*r_value < rsquared_threshold):
             return False
