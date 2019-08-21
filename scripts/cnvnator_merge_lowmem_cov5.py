@@ -13,7 +13,7 @@ import cProfile , pstats , resource
 from scipy.ndimage.interpolation import shift
 
 sys.path.append('/gscmnt/gc2802/halllab/abelhj/svtools/scripts/cncluster_utils')
-import CNCluster_cov4
+import CNCluster_cov5
 
 vcf_rec = namedtuple('vcf_rec', 'varid chr start stop ncarriers sname')
 
@@ -52,11 +52,10 @@ def min_frac_overlap(a, b, minfrac=0.5):
   else:
     return 0
   
-def cluster(comp, cn_comp, info_comp, verbose):
+def cluster(cn_comp, info_comp, verbose):
 
   cnag=cn_comp.groupby(['varid']).agg({'cn' : np.var }).reset_index()
   cnag.columns=['varid', 'cnvar']
-  print(str(cnag))
   cnag1=cnag.loc[cnag.cnvar>0].copy().reset_index()
   cnvsub2=cn_comp.loc[cn_comp.varid.isin(cnag1.varid)].reset_index(drop=True)
   nvar1=info_comp.loc[info_comp.varid.isin(cnag1.varid)].shape[0]
@@ -182,14 +181,12 @@ def get_info(lmv, chr, sample_list):
   return [info, carriers]
 
 def get_cndata(comp, component_pos, info, cntab, verbose):
-    temp=component_pos.loc[component_pos.comp==comp].copy().reset_index(drop=True)
+
     info_comp1=info.loc[info.comp==comp].copy().reset_index(drop=True)
-    firstpos=max(0, np.min(temp['varstart'])-10)
-    lastpos=min(np.max(temp['varstop'])+10, np.max(component_pos['varstop']))
+    firstpos=max(np.min(component_pos.loc[component_pos.comp==comp, ['varstart']].values)-10, 0)
+    lastpos=min(np.max(component_pos.loc[component_pos.comp==comp, ['varstop']].values)+10, np.max(component_pos['varstop'].values))
     if info_comp1.shape[0]<200:
       tabixit=cntab.fetch(component_pos.chr.values[0], firstpos, lastpos)
-      if verbose:
-        sys.stderr.write("Memory usage info: %s\n" % (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
       s = StringIO.StringIO("\n".join(tabixit))
       cn=pd.read_table(s,  names=['chr', 'varstart', 'varstop', 'id', 'cn'])
       cn=cn.merge(info_comp1,  on=['chr', 'varstart', 'varstop'])
@@ -200,14 +197,10 @@ def get_cndata(comp, component_pos, info, cntab, verbose):
        br=br.loc[br.start<lastpos]
        dd=[]
        for ii in range(br.shape[0]):
-         if verbose:
-           sys.stderr.write("chunk "+str(ii)+"\n")
          tabixit=cntab.fetch(component_pos.chr.values[0], br.start.values[ii], br.stop.values[ii])
          s = StringIO.StringIO("\n".join(tabixit))
          cn1=pd.read_table(s,  names=['chr', 'varstart', 'varstop', 'id', 'cn'])
          cn1=cn1.merge(info_comp1,  on=['chr', 'varstart', 'varstop'])
-         if verbose:
-           sys.stderr.write("Memory usage info: %s\n" % (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
          cn1.drop_duplicates(inplace=True)
          dd.append(cn1)
        cn=pd.concat(dd, ignore_index=True)
@@ -220,23 +213,14 @@ def prune_info(info_in):
     cp=component_pos[['comp', 'varid']].copy()
     cp.columns=['comp', 'nvar']
     info1=info_in.merge(cp, on='comp')
-    info2=info1.loc[(info1.nvar<maxnvar) | (info1.info_ncarriers>1)].copy()
-    cp2=info2.groupby(['comp']).agg({ 'varid':np.size}).reset_index()
-    cp2.columns=['comp', 'nvar2']
-    info2=info2.merge(cp2, on='comp')
-    info3=info2.loc[(info2.nvar2<maxnvar) | (info2.info_ncarriers>2)].copy()
-    cp3=info3.groupby(['comp']).agg({ 'varid':np.size}).reset_index()
-    cp3.columns=['comp', 'nvar3']
-    info3=info3.merge(cp3, on='comp')
-    info4=info3.loc[(info3.nvar3<maxnvar) | (info3.info_ncarriers>5)].copy()
-    cp4=info4.groupby(['comp']).agg({ 'varid':np.size}).reset_index()
-    cp4.columns=['comp', 'nvar4']
-    info4=info4.merge(cp4, on='comp')
-    info5=info4.loc[(info4.nvar4<maxnvar) | (info4.info_ncarriers>10)].copy()
-    cp5=info5.groupby(['comp']).agg({ 'varid':np.size}).reset_index()
-    cp5.columns=['comp', 'nvar5']
-    info5=info5.merge(cp5, on='comp')
-    info=info5[['chr', 'varstart', 'varstop', 'info_ncarriers', 'varid', 'svlen', 'comp']].copy().reset_index(drop=True)
+    for mincar in [1,2,5,10]:
+      info2=info1.loc[(info1.nvar<maxnvar) | (info1.info_ncarriers>mincar)].copy()
+      info2=info2.drop(['nvar'], axis=1)
+      cp2=info2.groupby(['comp']).agg({ 'varid':np.size}).reset_index()
+      cp2.columns=['comp', 'nvar']
+      info2=info2.merge(cp2, on='comp')
+      info1=info2.copy()
+    info=info1[['chr', 'varstart', 'varstop', 'info_ncarriers', 'varid', 'svlen', 'comp']].copy().reset_index(drop=True)
     return info
 
                                                               
@@ -260,34 +244,52 @@ def run_from_args(args):
   outf2=open(args.outprefix+".common.filtered.txt", "w")
   outf3=open(args.outprefix+".rare.all.txt", "w")
   outf4=open(args.outprefix+".rare.filtered.txt", "w")
-  header='\t'.join(['#comp', 'cluster', 'dist_cluster', 'start', 'stop', 'nocl', 'bic', 'mean_sep', 'mean_offset', 'cov', 'wts', 'cn_med', 'cn_mad', 'info_ncarriers', 'is_rare', 'mm_corr', 'dist', 'dip_p', 'n_outliers', 'nvar', 'score', 'ptspos', 'ptsend', 'prpos', 'prend', 'is_winner'])
+  header='\t'.join(['#comp', 'cluster', 'dist_cluster', 'chrom', 'start', 'stop', 'nocl', 'bic', 'mean_sep', 'mean_offset', 'cov', 'wts', 'freq', 'cn_med', 'cn_mad', 'info_ncarriers', 'is_rare', 'mm_corr', 'dist', 'dip_p', 'n_outliers', 'nvar', 'score', 'ptspos', 'ptsend', 'prpos', 'prend', 'is_winner'])
+  header1=header+"\tcluster2\tdist_cluster2"
   outf1.write(header+"\n")
-  outf2.write(header+"\n")
+  outf2.write(header1+"\n")
   outf3.write(header+"\n")
   outf4.write(header+"\n")
 
   for comp in component_pos.comp.unique():
     if(comp==args.test_comp) or (args.test_comp==-1):  
       cn=get_cndata(comp, component_pos, info, cntab, args.verbose)                  
-      if args.verbose:
-        sys.stderr.write("Memory usage info: %s\n" % (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
       cn_comp=cn.loc[cn['comp']==comp].copy().reset_index(drop=True)
       info_comp=info.loc[info['comp']==comp].copy().reset_index(drop=True)
       sys.stderr.write("comp="+str(comp)+"\tnvar="+str(info_comp.shape[0])+"\n")
       if (args.verbose):
         print(str(info_comp))
-        print( str(info_comp.shape[0]))  
   
       if cn_comp.shape[0]>=nind:
         carriers_comp=carriers.loc[carriers['comp']==comp].copy().reset_index(drop=True)
-        region_summary=cluster(comp, cn_comp, info_comp, args.verbose)
+        region_summary=cluster( cn_comp, info_comp, args.verbose)
+        comp_winners=[]
         if region_summary is not None:
           for [clus, dist_clus] in region_summary[['cluster', 'dist_cluster']].drop_duplicates().values:
             clus_vars=region_summary.loc[(region_summary.cluster==clus) & (region_summary.dist_cluster==dist_clus)].copy().reset_index(drop=True)
             clus_cn=cn_comp.loc[cn_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
             clus_carriers=carriers_comp[carriers_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
-            clus=CNCluster_cov4.CNClusterExact(clus_vars, clus_cn, clus_carriers, args.verbose)
-            clus.fit_generic(outf1, outf2, outf3, outf4)
+            clus=CNCluster_cov5.CNClusterExact(clus_vars, clus_cn, clus_carriers, args.verbose)
+            fit, fit_rare = clus.fit_generic()
+            fmt_str="%d\t%d\t%d\t%s\t%d\t%d\t%d\t%f\t%f\t%f\t%s\t%s\t%f\t%f\t%f\t%d\t%d\t%f\t%f\t%f\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s"
+            fmt_str1="%d\t%d\t%d\t%s\t%d\t%d\t%d\t%f\t%f\t%f\t%s\t%s\t%f\t%f\t%f\t%d\t%d\t%f\t%f\t%f\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d"
+            np.savetxt(outf1, fit, fmt=fmt_str)
+            fit=fit.loc[fit.is_winner=="winner"]
+            comp_winners.append(fit)
+            if fit_rare is not None:
+              np.savetxt(outf3, fit_rare, fmt=fmt_str)
+              fit_rare=fit_rare.loc[fit_rare.is_winner=="winner"]
+              np.savetxt(outf4, fit_rare, fmt=fmt_str)
+        cw=pd.concat(comp_winners, ignore_index=True)
+        if cw.shape[0]>0:
+          info_comp1=info_comp.loc[(info_comp.varstart.isin(cw.chunkstart)) & (info_comp.varstop.isin(cw.chunkstop))].copy().reset_index(drop=True)
+          cn_comp1=cn_comp.loc[cn_comp.varid.isin(info_comp1.varid)].copy().reset_index(drop=True)
+          region_summary1=cluster(cn_comp1, info_comp1, args.verbose)
+          region_summary1=region_summary1[['varstart', 'varstop', 'cluster', 'dist_cluster']].copy()
+          region_summary1.columns=['chunkstart', 'chunkstop', 'cluster2', 'dist_cluster2']
+          cw1=cw.merge(region_summary1, on=['chunkstart', 'chunkstop'])
+          np.savetxt(outf2, cw1.values, fmt=fmt_str1)
+                                                                    
   
   outf1.close()
   outf2.close()

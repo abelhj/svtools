@@ -3,18 +3,17 @@ import numpy as np
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 from sklearn import cluster
 import gaussian_mixture_constr
-import CNWindow_cov3
+import CNWindow_cov4
 from statsmodels import robust
 
 class CNClusterExact:
   
-  def __init__(self, clus_vars, cn_comp, carriers_comp, verbose,  nocl_min=1, nocl_max=20, nmads=5):
+  def __init__(self, clus_vars, cn_comp, carriers_comp, verbose, nocl_max=20, nmads=5):
     self.comp_id=clus_vars.comp[0]
     self.clus_info=clus_vars
     self.cndata=cn_comp
     self.clus_id=clus_vars.cluster[0]
     self.dist_clus_id=clus_vars.dist_cluster[0]
-    self.nocl_min=nocl_min
     self.nocl_max=nocl_max
     self.carriers=carriers_comp
     self.nsamp=np.unique(self.cndata.id).size
@@ -32,8 +31,8 @@ class CNClusterExact:
 
   def fit_one_window(self, chunkstart, chunkstop, ncarriers):
     cn1=self.get_chunk_data(chunkstart, chunkstop)
-    win=CNWindow_cov3.CNWindow(self.comp_id, self.clus_id, self.dist_clus_id, chunkstart, chunkstop, cn1.cn, self.nocl_min, self.nocl_max)
-    fit=win.fit_all_models(ncarriers, self.verbose)
+    win=CNWindow_cov4.CNWindow(self.comp_id, self.clus_id, self.dist_clus_id, chunkstart, chunkstop, cn1.cn,  self.nocl_max, ncarriers, self.verbose)
+    fit=win.fit_all_models()
     return fit
 
   def fit_mixture(self):
@@ -41,6 +40,7 @@ class CNClusterExact:
       print("fitting mixture")
     fits=[]
     data=[]
+    
     for ii in range(self.clus_info.shape[0]):
       fit=self.fit_one_window(self.clus_info.varstart.values[ii], self.clus_info.varstop.values[ii],  self.clus_info.info_ncarriers.values[ii])
       fits.append(fit)

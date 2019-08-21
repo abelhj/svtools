@@ -3,18 +3,18 @@ import numpy as np
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 from sklearn import cluster
 import gaussian_mixture_constr
-import CNWindow_cov3
+import CNWindow_cov4
 from statsmodels import robust
 
 class CNClusterExact:
   
-  def __init__(self, clus_vars, cn_comp, carriers_comp, verbose,  nocl_min=1, nocl_max=20, nmads=5):
+  def __init__(self, clus_vars, cn_comp, carriers_comp, verbose, nocl_max=20, nmads=5):
     self.comp_id=clus_vars.comp[0]
     self.clus_info=clus_vars
     self.cndata=cn_comp
     self.clus_id=clus_vars.cluster[0]
+    self.chrom=cn_comp.chr[0]
     self.dist_clus_id=clus_vars.dist_cluster[0]
-    self.nocl_min=nocl_min
     self.nocl_max=nocl_max
     self.carriers=carriers_comp
     self.nsamp=np.unique(self.cndata.id).size
@@ -32,8 +32,8 @@ class CNClusterExact:
 
   def fit_one_window(self, chunkstart, chunkstop, ncarriers):
     cn1=self.get_chunk_data(chunkstart, chunkstop)
-    win=CNWindow_cov3.CNWindow(self.comp_id, self.clus_id, self.dist_clus_id, chunkstart, chunkstop, cn1.cn, self.nocl_min, self.nocl_max)
-    fit=win.fit_all_models(ncarriers, self.verbose)
+    win=CNWindow_cov4.CNWindow(self.comp_id, self.clus_id, self.dist_clus_id, chunkstart, chunkstop, cn1.cn,  self.nocl_max, ncarriers, self.verbose)
+    fit=win.fit_all_models()
     return fit
 
   def fit_mixture(self):
@@ -41,6 +41,7 @@ class CNClusterExact:
       print("fitting mixture")
     fits=[]
     data=[]
+    
     for ii in range(self.clus_info.shape[0]):
       fit=self.fit_one_window(self.clus_info.varstart.values[ii], self.clus_info.varstop.values[ii],  self.clus_info.info_ncarriers.values[ii])
       fits.append(fit)
@@ -50,20 +51,21 @@ class CNClusterExact:
 
   def make_call_mixture(self, fits):
     fits1=pd.DataFrame(fits, columns=['comp', 'clus_id', 'dist_clus_id', 'chunkstart', 'chunkstop', 'nocl',
-                                      'bic', 'mm', 'kk', 'cov', 'wts', 'cn_med', 'cn_mad', 'info_ncarriers', 'nocl_sel', 'dipp'])
+                                      'bic', 'mm', 'kk', 'cov', 'wts', 'freq', 'cn_med', 'cn_mad', 'info_ncarriers', 'nocl_sel', 'dipp'])
     fits1=fits1.astype(dtype={'comp': 'int64', 'clus_id':'int64', 'dist_clus_id':'int64', 'chunkstart':'int64', 'chunkstop':'int64',
-                              'nocl':'int64', 'bic':'float64', 'mm':'float64', 'kk':'float64', 'cov':'string', 'wts':'string',
+                              'nocl':'int64', 'bic':'float64', 'mm':'float64', 'kk':'float64', 'cov':'string', 'wts':'string', 'freq':'float64',
                               'cn_med':'float64',  'cn_mad':'float64', 'info_ncarriers':'int64', 'nocl_sel':'int64', 'dipp':'float64'})
     fits1['is_rare']=False
     fits1['n_outliers']=0
+    fits1['chrom']=self.chrom
     fits1=fits1[fits1.nocl==fits1.nocl_sel].copy().reset_index(drop=True) #contains one call per variant
-    nocl_max=np.max(fits1['nocl'])
     fits1['negbic']=-1.0*fits1['bic']
+    fits1.loc[np.isnan(fits1.bic), ['negbic']]=0.5*np.min(fits1.negbic)
     fits1['dist']=fits1['mm']
-    fits1=fits1[['comp', 'clus_id', 'dist_clus_id', 'chunkstart', 'chunkstop',
-                        'nocl', 'bic', 'mm', 'kk', 'cov', 'wts', 'cn_med', 'cn_mad', 'info_ncarriers',
+    fits1=fits1[['comp', 'clus_id', 'dist_clus_id', 'chrom', 'chunkstart', 'chunkstop',
+                        'nocl', 'bic', 'mm', 'kk', 'cov', 'wts', 'freq', 'cn_med', 'cn_mad', 'info_ncarriers',
                         'is_rare', 'negbic', 'dist', 'dipp', 'n_outliers']].copy()
-    if nocl_max>1:
+    if np.max(fits1['nocl'])>1:
       fits1=self.get_cis(fits1, 'negbic')
     else:
       fits1=self.get_cis(fits1, 'info_ncarriers')
@@ -79,9 +81,11 @@ class CNClusterExact:
     fits['nocl']=0
     fits['negbic']=1.0
     fits['dipp']=-1.0
+    fits['chrom']=self.chrom
+    fits['freq']=0.0
     fits.rename(columns={'info_ncarriers_var':'info_ncarriers'}, inplace=True)
-    fits=fits[['comp', 'clus_id', 'dist_clus_id', 'chunkstart', 'chunkstop',
-                        'nocl', 'bic', 'mm', 'kk', 'cov', 'wts', 'cn_med', 'cn_mad', 'info_ncarriers',
+    fits=fits[['comp', 'clus_id', 'dist_clus_id', 'chrom', 'chunkstart', 'chunkstop',
+                        'nocl', 'bic', 'mm', 'kk', 'cov', 'wts', 'freq', 'cn_med', 'cn_mad', 'info_ncarriers',
                         'is_rare', 'negbic', 'dist', 'dipp', 'n_outliers']].copy()
     fits=self.get_cis(fits, 'dist')
     return fits
@@ -129,18 +133,12 @@ class CNClusterExact:
     return fits
     
 
-  def fit_generic(self, outf1, outf2, outf3, outf4):
+  def fit_generic(self):
     fit=self.fit_mixture()
-    np.savetxt(outf2, fit, fmt="%d\t%d\t%d\t%d\t%d\t%d\t%f\t%f\t%f\t%s\t%s\t%f\t%f\t%d\t%d\t%f\t%f\t%f\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s")
-    fit=fit.loc[fit.is_winner=="winner"]
-    np.savetxt(outf1, fit, fmt="%d\t%d\t%d\t%d\t%d\t%d\t%f\t%f\t%f\t%s\t%s\t%f\t%f\t%d\t%d\t%f\t%f\t%f\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s")
+    fit_rare=None
     if  self.ncarriers<0.0025*self.nsamp or  self.ncarriers<10:
-      fit=self.check_outliers_all()
-      if fit is not None:
-        np.savetxt(outf4, fit, fmt="%d\t%d\t%d\t%d\t%d\t%d\t%f\t%f\t%f\t%s\t%s\t%f\t%f\t%d\t%d\t%f\t%f\t%f\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s")
-        fit=fit.loc[fit.is_winner=="winner"]
-        np.savetxt(outf3, fit, fmt="%d\t%d\t%d\t%d\t%d\t%d\t%f\t%f\t%f\t%s\t%s\t%f\t%f\t%d\t%d\t%f\t%f\t%f\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s")
-    return
+      fit_rare=self.check_outliers_all()
+    return [fit, fit_rare]
 
 
   def check_outliers_all(self):
