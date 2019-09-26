@@ -242,10 +242,10 @@ def run_from_args(args):
     sys.stderr.write("Memory usage info: %s\n" % (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
   nind=np.unique(cn.loc[cn.comp==0, 'id']).shape[0]
   print(str(nind))
-  outf1=open(args.outprefix+".common.all.txt", "w")
-  outf2=open(args.outprefix+".common.filtered.txt", "w")
-  outf3=open(args.outprefix+".rare.all.txt", "w")
-  outf4=open(args.outprefix+".rare.filtered.txt", "w")
+  outf1=open(args.outprefix+".common.all.txt", "w", 1)
+  outf2=open(args.outprefix+".common.filtered.txt", "w", 1)
+  outf3=open(args.outprefix+".rare.all.txt", "w", 1)
+  outf4=open(args.outprefix+".rare.filtered.txt", "w", 1)
   header='\t'.join(['#comp', 'cluster', 'dist_cluster', 'chrom', 'start', 'stop', 'nocl', 'bic', 'mean_sep', 'mean_offset', 'cov', 'wts', 'freq', 'cn_med', 'cn_mad', 'info_ncarriers', 'is_rare', 'mm_corr', 'dist', 'dip_p', 'n_outliers', 'nvar', 'score', 'ptspos', 'ptsend', 'prpos', 'prend', 'is_winner'])
   header1=header+"\tcluster2\tdist_cluster2"
   outf1.write(header+"\n")
@@ -266,10 +266,10 @@ def run_from_args(args):
         carriers_comp=carriers.loc[carriers['comp']==comp].copy().reset_index(drop=True)
         region_summary=cluster( cn_comp, info_comp, args.verbose)
         comp_winners=[]
-        cn_comp.to_csv('cn_comp.csv')
-        region_summary.to_csv('region_summary.csv')
-        carriers_comp.to_csv('carriers_comp.csv')
-        sys.exit(0)
+        #cn_comp.to_csv('cn_comp.csv')
+        #region_summary.to_csv('region_summary.csv')
+        #carriers_comp.to_csv('carriers_comp.csv')
+        #sys.exit(0)
         if region_summary is not None:
           for [clus, dist_clus] in region_summary[['cluster', 'dist_cluster']].drop_duplicates().values:
             clus_vars=region_summary.loc[(region_summary.cluster==clus) & (region_summary.dist_cluster==dist_clus)].copy().reset_index(drop=True)
