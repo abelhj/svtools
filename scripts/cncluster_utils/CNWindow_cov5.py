@@ -81,14 +81,10 @@ class CNWindow(object):
   def fit_one_model(self, nocl):
     gmm=gaussian_mixture_constr.GaussianMixture(n_components=nocl, n_init=10, covariance_type='spherical') 
     gmm.fit(self.procdata)
-    cov=','.join( map(str, np.round(gmm.covariances_, 4)))
-    freq=np.round(1-np.max(gmm.weights_))
-    wts= ','.join( map(str, np.round(gmm.weights_, 4)))
-    bic=gmm.bic(self.procdata)
-    lld=gmm.score(self.procdata)
+    icl=gmm.icl(self.procdata)
     nn=gmm._n_parameters()
     kk, mm = gmm.get_kk_mm()
-    ret=np.array([self.comp_id, self.clus_id, self.clus_dist_id, self.start, self.stop, nocl, bic, mm, kk, cov, wts, freq,  self.cn_med, self.cn_mad], dtype='object')
+    ret=np.array([self.comp_id, self.clus_id, self.clus_dist_id, self.start, self.stop, nocl, icl, bic, mm, kk, cov, wts, freq,  self.cn_med, self.cn_mad], dtype='object')
     #ret=np.array([self.comp_id, self.clus_id, self.clus_dist_id, self.start, self.stop, nocl, bic, mm, kk, cov, wts, self.cn_med, self.cn_mad], dtype='object')
     return ret
 

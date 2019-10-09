@@ -12,8 +12,7 @@ from base import BaseMixture, _check_shape
 from sklearn.externals.six.moves import zip
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted
-from sklearn.utils.extmath import row_norms
-
+from sklearn.utils.extmath import row_norms, logsumexp
 
 ###############################################################################
 # Gaussian mixture shape checkers used by the GaussianMixture class
@@ -663,6 +662,18 @@ class GaussianMixture(BaseMixture):
         return (-2 * self.score(X) * X.shape[0] +
                 self._n_parameters() * np.log(X.shape[0]))
 
+    def icl(self, X):
+        
+          zz=self._estimate_log_prob(X)
+          am=np.argmax(zz, axis=1)
+          dmat=np.zeros(zz.shape, dtype='int')
+          for ii in range(zz.shape[1]):
+            dmat[np.where(am==ii), ii]=1
+          zz1=zz+np.log(dmat)
+          lse=np.sum(logsumexp(zz1))
+          return(self.bic(X)-2*lse)
+          
+    
     def aic(self, X):
         """Akaike information criterion for the current model on the input X.
         Parameters

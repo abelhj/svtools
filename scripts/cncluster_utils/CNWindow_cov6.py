@@ -50,7 +50,7 @@ class CNWindow(object):
       bic_min=bic
       nocl=2
       if self.verbose:
-        print(str(self.start)+"\t"+str(self.stop)+"\t"+str(nocl)+"\t"+str(bic)+"\t"+str(bic_min)+"\t"+str(dipp))
+        print(str(self.start)+"\t"+str(self.stop)+"\t"+str(nocl)+"\t"+str(bic)+"\t"+str(bic_min)+'\t'+str(icl)+"\t"+str(dipp))
       while (nocl<mm): 
         res=self.fit_one_model(nocl)
         fits.append(res)
@@ -59,7 +59,7 @@ class CNWindow(object):
           bic_min=bic
           nocl_min=nocl
         if self.verbose:
-          print(str(self.start)+"\t"+str(self.stop)+"\t"+str(nocl)+"\t"+str(bic)+"\t"+str(bic_min)+"\t"+str(dipp))
+          print(str(self.start)+"\t"+str(self.stop)+"\t"+str(nocl)+"\t"+str(bic)+"\t"+str(bic_min)+"\t"+str(icl)+"\t"+str(dipp))
         #save some model fitting
         if nocl_min<=2 and nocl==4:  
           break
@@ -69,9 +69,9 @@ class CNWindow(object):
         
     fits=np.vstack(fits)
     fits=np.hstack([fits, np.empty([fits.shape[0], 2], dtype='int32'), np.empty([fits.shape[0], 1], dtype='float64')])
-    fits[:, 14]=self.info_carriers
-    fits[:,15]=nocl_min
-    fits[:,16]=dipp
+    fits[:, 15]=self.info_carriers
+    fits[:,16]=nocl_min
+    fits[:,17]=dipp
 #    fits[:, 13]=self.info_carriers
 #    fits[:,14]=nocl_min
 #    fits[:,15]=dipp
@@ -81,19 +81,16 @@ class CNWindow(object):
   def fit_one_model(self, nocl):
     gmm=gaussian_mixture_constr.GaussianMixture(n_components=nocl, n_init=10, covariance_type='spherical') 
     gmm.fit(self.procdata)
-    cov=','.join( map(str, np.round(gmm.covariances_, 4)))
-    freq=np.round(1-np.max(gmm.weights_))
-    wts= ','.join( map(str, np.round(gmm.weights_, 4)))
+    icl=gmm.icl(self.procdata)
     bic=gmm.bic(self.procdata)
-    lld=gmm.score(self.procdata)
     nn=gmm._n_parameters()
     kk, mm = gmm.get_kk_mm()
-    ret=np.array([self.comp_id, self.clus_id, self.clus_dist_id, self.start, self.stop, nocl, bic, mm, kk, cov, wts, freq,  self.cn_med, self.cn_mad], dtype='object')
+    ret=np.array([self.comp_id, self.clus_id, self.clus_dist_id, self.start, self.stop, nocl, bic, icl, mm, kk, str(gmm.covariances_), str(gmm.weights_), freq,  self.cn_med, self.cn_mad], dtype='object')
     #ret=np.array([self.comp_id, self.clus_id, self.clus_dist_id, self.start, self.stop, nocl, bic, mm, kk, cov, wts, self.cn_med, self.cn_mad], dtype='object')
     return ret
 
   def fit_no_model(self):
-    ret=np.array([self.comp_id, self.clus_id, self.clus_dist_id, self.start, self.stop, 1, np.nan, 1, 1, str(np.mean(self.procdata)), '1.0', 0.0, self.cn_med, self.cn_mad], dtype='object')
+    ret=np.array([self.comp_id, self.clus_id, self.clus_dist_id, self.start, self.stop, 1, np.nan, np.nan, 1, 1, str(np.mean(self.procdata)), '1.0', 0.0, self.cn_med, self.cn_mad], dtype='object')
     #ret=np.array([self.comp_id, self.clus_id, self.clus_dist_id, self.start, self.stop, 1, np.nan, 1, 1, str(np.mean(self.procdata)), '1.0',  self.cn_med, self.cn_mad], dtype='object')
     return ret
 

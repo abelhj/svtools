@@ -13,7 +13,7 @@ import cProfile , pstats , resource
 from scipy.ndimage.interpolation import shift
 
 sys.path.append('/gscmnt/gc2802/halllab/abelhj/svtools/scripts/cncluster_utils')
-import CNCluster_cov5
+import CNCluster_cov6
 
 vcf_rec = namedtuple('vcf_rec', 'varid chr start stop ncarriers sname')
 
@@ -246,7 +246,7 @@ def run_from_args(args):
   outf2=open(args.outprefix+".common.filtered.txt", "w", 1)
   outf3=open(args.outprefix+".rare.all.txt", "w", 1)
   outf4=open(args.outprefix+".rare.filtered.txt", "w", 1)
-  header='\t'.join(['#comp', 'cluster', 'dist_cluster', 'chrom', 'start', 'stop', 'nocl', 'bic', 'mean_sep', 'mean_offset', 'cov', 'wts', 'freq', 'cn_med', 'cn_mad', 'info_ncarriers', 'is_rare', 'mm_corr', 'dist', 'dip_p', 'n_outliers', 'nvar', 'score', 'ptspos', 'ptsend', 'prpos', 'prend', 'is_winner'])
+  header='\t'.join(['#comp', 'cluster', 'dist_cluster', 'chrom', 'start', 'stop', 'nocl', 'bic', 'icl', 'mean_sep', 'mean_offset', 'cov', 'wts', 'freq', 'cn_med', 'cn_mad', 'info_ncarriers', 'is_rare', 'mm_corr', 'dist', 'dip_p', 'n_outliers', 'nvar', 'score', 'ptspos', 'ptsend', 'prpos', 'prend', 'is_winner'])
   header1=header+"\tcluster2\tdist_cluster2"
   outf1.write(header+"\n")
   outf2.write(header1+"\n")
@@ -269,16 +269,16 @@ def run_from_args(args):
         cn_comp.to_csv('cn_comp.csv')
         region_summary.to_csv('region_summary.csv')
         carriers_comp.to_csv('carriers_comp.csv')
-        sys.exit(0)
+        #sys.exit(0)
         if region_summary is not None:
           for [clus, dist_clus] in region_summary[['cluster', 'dist_cluster']].drop_duplicates().values:
             clus_vars=region_summary.loc[(region_summary.cluster==clus) & (region_summary.dist_cluster==dist_clus)].copy().reset_index(drop=True)
             clus_cn=cn_comp.loc[cn_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
             clus_carriers=carriers_comp[carriers_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
-            clus=CNCluster_cov5.CNClusterExact(clus_vars, clus_cn, clus_carriers, args.verbose)
+            clus=CNCluster_cov6.CNClusterExact(clus_vars, clus_cn, clus_carriers, args.verbose)
             fit, fit_rare = clus.fit_generic()
-            fmt_str="%d\t%d\t%d\t%s\t%d\t%d\t%d\t%f\t%f\t%f\t%s\t%s\t%f\t%f\t%f\t%d\t%d\t%f\t%f\t%f\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s"
-            fmt_str1="%d\t%d\t%d\t%s\t%d\t%d\t%d\t%f\t%f\t%f\t%s\t%s\t%f\t%f\t%f\t%d\t%d\t%f\t%f\t%f\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d"
+            fmt_str="%d\t%d\t%d\t%s\t%d\t%d\t%d\t%f\t%f\t%f\t%s\t%s\t%f\t%f\t%f\t%f\t%d\t%d\t%f\t%f\t%f\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s"
+            fmt_str1="%d\t%d\t%d\t%s\t%d\t%d\t%d\t%f\t%f\t%f\t%s\t%s\t%f\t%f\t%f\%f\tt%d\t%d\t%f\t%f\t%f\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d"
             np.savetxt(outf1, fit, fmt=fmt_str)
             fit=fit.loc[fit.is_winner=="winner"]
             comp_winners.append(fit)
