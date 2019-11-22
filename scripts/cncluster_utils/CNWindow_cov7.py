@@ -48,24 +48,22 @@ class CNWindow(object):
       res=self.fit_one_model(nocl)
       fits.append(res)
       [bic, icl]=[res[bic_col], res[bic_col+1]]
-      bic_min=bic
+      icl_min=icl
       str_id=str(self.comp_id)+'\t'+str(self.clus_id)+'\t'+str(self.clus_dist_id)
       if self.verbose:
-        print('fit_vals\t'+str_id+'\t'+str(self.start)+"\t"+str(self.stop)+"\t"+str(nocl)+"\t"+str(bic)+"\t"+str(bic_min)+'\t'+str(icl)+"\t"+str(dipp))
+        print('fit_vals\t'+str_id+'\t'+str(self.start)+"\t"+str(self.stop)+"\t"+str(nocl)+"\t"+str(bic)+"\t"+str(icl_min)+'\t'+str(icl)+"\t"+str(dipp))
       nocl=2
       while (nocl<mm): 
         res=self.fit_one_model(nocl)
         fits.append(res)
         [bic, icl]=[res[bic_col], res[bic_col+1]]
-        if bic<bic_min:
-          bic_min=bic
+        if icl<icl_min:
+          icl_min=icl
           nocl_min=nocl
         if self.verbose:
-          print('fit_vals\t'+str_id+'\t'+str(self.start)+"\t"+str(self.stop)+"\t"+str(nocl)+"\t"+str(bic)+"\t"+str(bic_min)+"\t"+str(icl)+"\t"+str(dipp))
+          print('fit_vals\t'+str_id+'\t'+str(self.start)+"\t"+str(self.stop)+"\t"+str(nocl)+"\t"+str(bic)+"\t"+str(icl_min)+"\t"+str(icl)+"\t"+str(dipp))
         #save some model fitting
-        if nocl_min<=2 and nocl==4:  
-          break
-        elif nocl_min>=3 and nocl>=2*nocl_min:
+        if nocl>=6 and nocl>=2*nocl_min:
           break
         nocl=nocl+1
         
@@ -74,7 +72,8 @@ class CNWindow(object):
     fits[:, 13]=self.info_carriers
     fits[:,14]=nocl_min
     fits[:,15]=dipp
-
+    pd.DataFrame(fits).to_csv("fits.csv")
+    sys.exit(0)
     return fits
 
   def fit_one_model(self, nocl):

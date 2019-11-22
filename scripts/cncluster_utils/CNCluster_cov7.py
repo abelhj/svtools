@@ -3,7 +3,7 @@ import numpy as np
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 from sklearn import cluster
 import gaussian_mixture_constr
-import CNWindow_cov6
+import CNWindow_cov7
 from statsmodels import robust
 
 class CNClusterExact:
@@ -32,7 +32,7 @@ class CNClusterExact:
 
   def fit_one_window(self, chunkstart, chunkstop, ncarriers):
     cn1=self.get_chunk_data(chunkstart, chunkstop)
-    win=CNWindow_cov6.CNWindow(self.comp_id, self.clus_id, self.dist_clus_id, chunkstart, chunkstop, cn1.cn,  self.nocl_max, ncarriers, self.verbose)
+    win=CNWindow_cov7.CNWindow(self.comp_id, self.clus_id, self.dist_clus_id, chunkstart, chunkstop, cn1.cn,  self.nocl_max, ncarriers, self.verbose)
     fit=win.fit_all_models()
     return fit
 
@@ -59,14 +59,14 @@ class CNClusterExact:
     fits1['n_outliers']=0
     fits1['chrom']=self.chrom
     fits1=fits1[fits1.nocl==fits1.nocl_sel].copy().reset_index(drop=True) #contains one call per variant
-    fits1['negbic']=-1.0*fits1['bic']
-    fits1.loc[np.isnan(fits1.bic), ['negbic']]=0.5*np.min(fits1.negbic)
+    fits1['negicl']=-1.0*fits1['icl']
+    fits1.loc[np.isnan(fits1.icl), ['negicl']]=0.5*np.min(fits1.negicl)
     fits1['dist']=fits1['mm']
     fits1=fits1[['comp', 'clus_id', 'dist_clus_id', 'chrom', 'chunkstart', 'chunkstop',
                         'nocl', 'bic', 'icl', 'mm', 'kk', 'info', 'cn_med', 'cn_mad', 'info_ncarriers',
-                        'is_rare', 'negbic', 'dist', 'dipp', 'n_outliers']].copy()
+                        'is_rare', 'negicl', 'dist', 'dipp', 'n_outliers']].copy()
     if np.max(fits1['nocl'])>1:
-      fits1=self.get_cis(fits1, 'negbic')
+      fits1=self.get_cis(fits1, 'negicl')
     else:
       fits1=self.get_cis(fits1, 'info_ncarriers')
     return fits1
@@ -79,7 +79,7 @@ class CNClusterExact:
     fits['bic']=0
     fits['icl']=0
     fits['nocl']=0
-    fits['negbic']=1.0
+    fits['negicl']=1.0
     fits['dipp']=-1.0
     fits['chrom']=self.chrom
     fits['freq']=0.0

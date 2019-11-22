@@ -18,7 +18,8 @@ from sklearn.base import DensityMixin
 from sklearn.externals import six
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.utils import check_array, check_random_state
-from sklearn.utils.extmath import logsumexp
+#from sklearn.utils.extmath import logsumexp
+from scipy.misc import logsumexp
 
 
 def _check_shape(param, param_shape, name):

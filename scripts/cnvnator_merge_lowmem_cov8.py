@@ -13,7 +13,7 @@ import cProfile , pstats , resource
 from scipy.ndimage.interpolation import shift
 
 sys.path.append('/gscmnt/gc2802/halllab/abelhj/svtools/scripts/cncluster_utils')
-import CNCluster_cov6
+import CNCluster_cov7
 
 vcf_rec = namedtuple('vcf_rec', 'varid chr start stop ncarriers sname')
 
@@ -272,7 +272,7 @@ def run_from_args(args):
               clus_vars=region_summary.loc[(region_summary.cluster==clus) & (region_summary.dist_cluster==dist_clus)].copy().reset_index(drop=True)
               clus_cn=cn_comp.loc[cn_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
               clus_carriers=carriers_comp[carriers_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
-              clus=CNCluster_cov6.CNClusterExact(clus_vars, clus_cn, clus_carriers, args.verbose)
+              clus=CNCluster_cov7.CNClusterExact(clus_vars, clus_cn, clus_carriers, args.verbose)
               clus.fit_generic(outf1, outf2, outf3, outf4)  
   cp.disable()
   cp.print_stats()

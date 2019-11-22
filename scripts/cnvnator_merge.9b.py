@@ -11,9 +11,11 @@ from collections import namedtuple
 import svtools.utils as su
 import cProfile , pstats , resource
 from scipy.ndimage.interpolation import shift
+#import code
+import gzip
 
 sys.path.append('/gscmnt/gc2802/halllab/abelhj/svtools/scripts/cncluster_utils')
-import CNCluster_cov6
+import CNCluster_cov9b
 
 vcf_rec = namedtuple('vcf_rec', 'varid chr start stop ncarriers sname')
 
@@ -68,7 +70,6 @@ def cluster(cn_comp, info_comp, verbose):
     cnvsub2['dist_cluster']=1
   else:
     df2=cnvsub2.pivot_table(index=['varid', 'varstart', 'varstop', 'info_ncarriers'], columns='id', values='cn').reset_index()
-    #df2.to_csv('df2.csv')
     ar=df2.iloc[:, 4:df2.shape[1]].values
     dd=np.linalg.svd(ar, compute_uv=False)
     nvar=1+np.sum(np.cumsum(dd/np.sum(dd))<0.95)
@@ -213,8 +214,6 @@ def prune_info(info_in):
     cp=component_pos[['comp', 'varid']].copy()
     cp.columns=['comp', 'nvar']
     info1=info_in.merge(cp, on='comp')
-    #info1.to_csv('info1.csv')
-    #sys.exit(0)
     for mincar in [1,2,5,10]:
       info2=info1.loc[(info1.nvar<maxnvar) | (info1.info_ncarriers>mincar)].copy()
       info2=info2.drop(['nvar'], axis=1)
@@ -244,12 +243,10 @@ def run_from_args(args):
   print(str(nind))
 
 
-  header='\t'.join(['#comp', 'cluster', 'dist_cluster', 'chrom', 'start', 'stop', 'nocl', 'bic', 'icl', 'mean_sep', 'mean_offset', 'info', 'cn_med', 'cn_mad', 'info_ncarriers', 'is_rare', 'mm_corr', 'dist', 'dip_p', 'n_outliers', 'nvar', 'score', 'ptspos', 'ptsend', 'prpos', 'prend', 'is_winner'])  
   buf=1
-  with open(args.outprefix+'.common.all.txt', 'w', buf) as outf1, open(args.outprefix+'.common.filtered.txt', 'w', buf) as outf2, open(args.outprefix+".rare.all.txt", "w", buf) as outf3, open(args.outprefix+".rare.filtered.txt", "w", buf) as outf4:
-
-    for fh in [outf1, outf2, outf3, outf4]:
-      fh.write(header+'\n')
+  with gzip.open(args.outprefix+'out.gz', 'wt', buf) as outf1:
+    #for fh in [outf1, outf2, outf3, outf4]:
+    #  fh.write(header+'\n')
   
     for comp in component_pos.comp.unique():
       if(comp==args.test_comp) or (args.test_comp==-1):  
@@ -259,21 +256,19 @@ def run_from_args(args):
         sys.stderr.write("comp="+str(comp)+"\tnvar="+str(info_comp.shape[0])+"\n")
         if (args.verbose):
           print(str(info_comp))
-  
         if cn_comp.shape[0]>=nind:
           carriers_comp=carriers.loc[carriers['comp']==comp].copy().reset_index(drop=True)
           region_summary=cluster( cn_comp, info_comp, args.verbose)
-          cn_comp.to_csv('cn_comp.csv')
-          region_summary.to_csv('region_summary.csv')
-          carriers_comp.to_csv('carriers_comp.csv')
-          #sys.exit(0)
+          #cn_comp.to_csv('cn_comp.csv')
+          #region_summary.to_csv('region_summary.csv')
+          #carriers_comp.to_csv('carriers_comp.csv')
           if region_summary is not None:
             for [clus, dist_clus] in region_summary[['cluster', 'dist_cluster']].drop_duplicates().values:
               clus_vars=region_summary.loc[(region_summary.cluster==clus) & (region_summary.dist_cluster==dist_clus)].copy().reset_index(drop=True)
               clus_cn=cn_comp.loc[cn_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
               clus_carriers=carriers_comp[carriers_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
-              clus=CNCluster_cov6.CNClusterExact(clus_vars, clus_cn, clus_carriers, args.verbose)
-              clus.fit_generic(outf1, outf2, outf3, outf4)  
+              clus=CNCluster_cov9b.CNClusterExact(clus_vars, clus_cn, clus_carriers, args.verbose)
+              clus.fit_generic(outf1)  
   cp.disable()
   cp.print_stats()
 
