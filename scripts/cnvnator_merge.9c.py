@@ -15,7 +15,7 @@ from scipy.ndimage.interpolation import shift
 import gzip
 
 sys.path.append('/gscmnt/gc2802/halllab/abelhj/svtools/scripts/cncluster_utils')
-import CNCluster_cov9b
+import CNCluster_cov9c
 
 vcf_rec = namedtuple('vcf_rec', 'varid chr start stop ncarriers sname')
 
@@ -259,15 +259,17 @@ def run_from_args(args):
         if cn_comp.shape[0]>=nind:
           carriers_comp=carriers.loc[carriers['comp']==comp].copy().reset_index(drop=True)
           region_summary=cluster( cn_comp, info_comp, args.verbose)
-          cn_comp.to_csv('cn_comp.csv')
-          region_summary.to_csv('region_summary.csv')
-          carriers_comp.to_csv('carriers_comp.csv')
+          #cn_comp.to_csv('cn_comp.csv')
+          #region_summary.to_csv('region_summary.csv')
+          #carriers_comp.to_csv('carriers_comp.csv')
           if region_summary is not None:
             for [clus, dist_clus] in region_summary[['cluster', 'dist_cluster']].drop_duplicates().values:
               clus_vars=region_summary.loc[(region_summary.cluster==clus) & (region_summary.dist_cluster==dist_clus)].copy().reset_index(drop=True)
               clus_cn=cn_comp.loc[cn_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
-              clus_carriers=carriers_comp[carriers_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
-              clus=CNCluster_cov9b.CNClusterExact(clus_vars, clus_cn, clus_carriers, args.verbose)
+              clus_carriers = None
+              if carriers_comp.shape[0]>0:
+                clus_carriers=carriers_comp[carriers_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
+              clus=CNCluster_cov9c.CNClusterExact(clus_vars, clus_cn, clus_carriers, args.verbose)
               clus.fit_generic(outf1)  
   cp.disable()
   cp.print_stats()

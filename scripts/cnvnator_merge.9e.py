@@ -15,7 +15,7 @@ from scipy.ndimage.interpolation import shift
 import gzip
 
 sys.path.append('/gscmnt/gc2802/halllab/abelhj/svtools/scripts/cncluster_utils')
-import CNCluster_cov9b
+import CNCluster_cov9c
 
 vcf_rec = namedtuple('vcf_rec', 'varid chr start stop ncarriers sname')
 
@@ -60,6 +60,7 @@ def cluster(cn_comp, info_comp, verbose):
   cnag.columns=['varid', 'cnvar']
   cnag1=cnag.loc[cnag.cnvar>0].copy().reset_index()
   cnvsub2=cn_comp.loc[cn_comp.varid.isin(cnag1.varid)].reset_index(drop=True)
+  cnvsub2.drop('cohort', axis=1, inplace=True)
   nvar1=info_comp.loc[info_comp.varid.isin(cnag1.varid)].shape[0]
   cn_comp=0
 
@@ -119,6 +120,7 @@ def add_arguments_to_parser(parser):
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true')
     parser.add_argument('-r', '--dry_run', dest='dry_run_info_file', metavar='<STRING>', default='',  required=False, help='output info file for dry run')
     parser.add_argument('-t', '--test_comp', dest='test_comp', type=int, required=False, default=-1, help='start at this component for debuggin')
+    parser.add_argument('-g', '--region_summary', dest='region_summary', type=str, default=None, required=False, help='precalculated region summary')
 
 def command_parser():
     parser = argparse.ArgumentParser(description="cross-cohort cnv caller")
@@ -189,7 +191,7 @@ def get_cndata(comp, component_pos, info, cntab, verbose):
     if info_comp1.shape[0]<200:
       tabixit=cntab.fetch(component_pos.chr.values[0], firstpos, lastpos)
       s = StringIO.StringIO("\n".join(tabixit))
-      cn=pd.read_table(s,  names=['chr', 'varstart', 'varstop', 'id', 'cn'])
+      cn=pd.read_table(s,  names=['chr', 'varstart', 'varstop', 'id', 'cn', 'cohort'])
       cn=cn.merge(info_comp1,  on=['chr', 'varstart', 'varstop'])
     else:
        length=lastpos-firstpos+10
@@ -200,7 +202,7 @@ def get_cndata(comp, component_pos, info, cntab, verbose):
        for ii in range(br.shape[0]):
          tabixit=cntab.fetch(component_pos.chr.values[0], br.start.values[ii], br.stop.values[ii])
          s = StringIO.StringIO("\n".join(tabixit))
-         cn1=pd.read_table(s,  names=['chr', 'varstart', 'varstop', 'id', 'cn'])
+         cn1=pd.read_table(s,  names=['chr', 'varstart', 'varstop', 'id', 'cn', 'cohort'])
          cn1=cn1.merge(info_comp1,  on=['chr', 'varstart', 'varstop'])
          cn1.drop_duplicates(inplace=True)
          dd.append(cn1)
@@ -245,8 +247,6 @@ def run_from_args(args):
 
   buf=1
   with gzip.open(args.outprefix+'out.gz', 'wt', buf) as outf1:
-    #for fh in [outf1, outf2, outf3, outf4]:
-    #  fh.write(header+'\n')
   
     for comp in component_pos.comp.unique():
       if(comp==args.test_comp) or (args.test_comp==-1):  
@@ -259,16 +259,19 @@ def run_from_args(args):
         if cn_comp.shape[0]>=nind:
           carriers_comp=carriers.loc[carriers['comp']==comp].copy().reset_index(drop=True)
           region_summary=cluster( cn_comp, info_comp, args.verbose)
-          cn_comp.to_csv('cn_comp.csv')
-          region_summary.to_csv('region_summary.csv')
-          carriers_comp.to_csv('carriers_comp.csv')
+          #cn_comp.to_csv('cn_comp.csv')
+          #region_summary.to_csv('region_summary.csv')
+          #carriers_comp.to_csv('carriers_comp.csv')
           if region_summary is not None:
-            for [clus, dist_clus] in region_summary[['cluster', 'dist_cluster']].drop_duplicates().values:
-              clus_vars=region_summary.loc[(region_summary.cluster==clus) & (region_summary.dist_cluster==dist_clus)].copy().reset_index(drop=True)
-              clus_cn=cn_comp.loc[cn_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
-              clus_carriers=carriers_comp[carriers_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
-              clus=CNCluster_cov9b.CNClusterExact(clus_vars, clus_cn, clus_carriers, args.verbose)
-              clus.fit_generic(outf1)  
+            region_summary.to_csv(args.outprefix+'all_cohorts_region_summary.csv', mode='a', header=False)
+            #for [clus, dist_clus] in region_summary[['cluster', 'dist_cluster']].drop_duplicates().values:
+            #  clus_vars=region_summary.loc[(region_summary.cluster==clus) & (region_summary.dist_cluster==dist_clus)].copy().reset_index(drop=True)
+            #  clus_cn=cn_comp.loc[cn_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
+            #  clus_carriers = None
+            #  if carriers_comp.shape[0]>0:
+            #    clus_carriers=carriers_comp[carriers_comp.varid.isin(clus_vars.varid)].copy().reset_index(drop=True)
+            #  clus=CNCluster_cov9c.CNClusterExact(clus_vars, clus_cn, clus_carriers, args.verbose)
+            #  clus.fit_generic(outf1)  
   cp.disable()
   cp.print_stats()
 
